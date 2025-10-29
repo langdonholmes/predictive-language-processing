@@ -1,0 +1,12 @@
+../.env
+data/
+bin/
+results/
+fig/
+**/*.ipynb_checkpoints/
+src/__
+.Rproj.user
+.Rprofile
+*.Rproj
+renv/
+

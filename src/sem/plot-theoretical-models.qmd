@@ -1,0 +1,270 @@
+
+```{r}
+library(lavaan)
+library(tidySEM)
+library(ggplot2)
+library(tidyverse)
+```
+
+# Create dummy data with appropriate variable names
+
+```{r}
+set.seed(42)
+n <- 100
+dummy_data <- data.frame(
+  # Lexical Sophistication indicators
+  TTR = rnorm(n),
+  token_freq = rnorm(n),
+  bigram_freq = rnorm(n),
+  
+  # Syntactic Complexity indicators
+  clauses_per_tunit = rnorm(n),
+  MLU = rnorm(n),
+  
+  # Phraseological Sophistication indicators
+  delta_p = rnorm(n),
+  MI_dep_bigrams = rnorm(n),
+  word_predictability = rnorm(n),
+  
+  # Accuracy indicators
+  error_grammar = rnorm(n),
+  error_vocab = rnorm(n),
+  error_spelling = rnorm(n),
+  
+  # Fluency indicators
+  word_count = rnorm(n),
+  tunit_count = rnorm(n),
+  clause_count = rnorm(n)
+)
+```
+
+
+# =============================================================================
+# MODEL 1: Word Predictability → Phraseological Sophistication
+# =============================================================================
+
+```{r}
+model1 <- '
+  # First-order factors (sub-components of Complexity)
+  LexSoph =~ TTR + token_freq + bigram_freq
+  SynComp =~ clauses_per_tunit + MLU
+  PhraSoph =~ delta_p + MI_dep_bigrams + word_predictability
+  
+  # Second-order factor (Complexity)
+  Complexity =~ LexSoph + SynComp + PhraSoph
+  
+  # Other first-order factors
+  Accuracy =~ error_grammar + error_vocab + error_spelling
+  Fluency =~ word_count + tunit_count + clause_count
+  
+  # Third-order factor (Language Proficiency)
+  LangProf =~ Complexity + Accuracy + Fluency
+'
+layout1 = get_layout("","","","","","","","LangProf","","","","","","",
+                     "","","","Complexity","","","","","","Accuracy","","","Fluency","",
+                     "","LexSoph","","SynComp","","","PhraSoph","","","","","","","",
+                     "TTR", "token_freq", "bigram_freq", "clauses_per_tunit", "MLU", "delta_p", "MI_dep_bigrams", "word_predictability", "error_grammar", "error_vocab", "error_spelling", "word_count", "tunit_count", "clause_count",
+                     rows = 4)
+
+# Create a named vector for variable labels
+var_labels <- c(
+  "TTR" = "Type-Token\nRatio",
+  "token_freq" = "Token\nFrequency",
+  "bigram_freq" = "Bigram\nFrequency",
+  "clauses_per_tunit" = "Clauses\nper T-unit",
+  "MLU" = "Mean\nLength of\nUtterance",
+  "delta_p" = "Delta-P\nDependency\nBigrams",
+  "MI_dep_bigrams" = "MI\nDependency\nBigrams",
+  "word_predictability" = "Word\nPredictability",
+  "error_grammar" = "Grammar\nErrors",
+  "error_vocab" = "Vocabulary\nErrors",
+  "error_spelling" = "Spelling\nErrors",
+  "word_count" = "Word\nCount",
+  "tunit_count" = "T-unit\nCount",
+  "clause_count" = "Clause\nCount",
+  "LexSoph" = "Lexical\nSophistication",
+  "SynComp" = "Syntactic\nComplexity",
+  "PhraSoph" = "Phraseological\nSophistication",
+  "Complexity" = "Complexity",
+  "Accuracy" = "Accuracy",
+  "Fluency" = "Fluency",
+  "LangProf" = "Language\nProficiency"
+)
+
+# Prepare the graph with customizations
+p1 <- prepare_graph(
+    model = model1,
+    layout = layout1,
+    spacing_x = 1.8,   # Increase horizontal spacing
+    spacing_y = 2.0,   # Increase vertical spacing
+    angle = 170
+  ) %>% 
+  {
+    edges(.) <- edges(.) %>%
+      filter(from != to) %>%  # Remove variance arrows
+      mutate(
+        size = 0.8,
+        # arrow = "last",
+        color = "black",
+        color = replace(color, from == "PhraSoph" & to == "word_predictability", "red")
+        )
+    .
+  } %>%
+  {
+    nodes(.) <- nodes(.) %>%
+      mutate(
+        fill = "white",
+        size = 0.8,
+        fill = replace(fill, name == "word_predictability", "red"),
+        label = ifelse(name %in% names(var_labels), var_labels[name], name)
+        )
+    .
+  } %>%
+  plot() +
+  ggtitle("Model 1: Word Predictability as Phraseological Sophistication") +
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
+
+ggsave("../../fig/model1_word_pred_phraseological.png", 
+       plot = p1, 
+       width = 16, 
+       height = 8, 
+       dpi = 300,
+       bg = "white"
+       )
+```
+
+# =============================================================================
+# MODEL 2: Word Predictability → Language Proficiency (direct)
+# =============================================================================
+
+```{r}
+model2 <- '
+  # First-order factors
+  LexSoph =~ TTR + token_freq + bigram_freq
+  SynComp =~ clauses_per_tunit + MLU
+  PhraSoph =~ delta_p + MI_dep_bigrams
+  
+  # Second-order factor
+  Complexity =~ LexSoph + SynComp + PhraSoph
+  
+  # Other first-order factors
+  Accuracy =~ error_grammar + error_vocab + error_spelling
+  Fluency =~ word_count + tunit_count + clause_count
+  
+  # Third-order factor with direct loading
+  LangProf =~ Complexity + Accuracy + Fluency + word_predictability
+'
+layout2 = get_layout("","","","","","","","LangProf","","","","","","",
+                     "","","","Complexity","","","word_predictability","","","Accuracy","","","Fluency","",
+                     "","LexSoph","","SynComp","","","PhraSoph","","","","","","","",
+                     "TTR", "token_freq", "bigram_freq", "clauses_per_tunit", "MLU", "delta_p", "MI_dep_bigrams", "", "error_grammar", "error_vocab", "error_spelling", "word_count", "tunit_count", "clause_count",
+                     rows = 4)
+
+# Prepare the graph with customizations
+p2 <- prepare_graph(
+    model = model2,
+    layout = layout2,
+    spacing_x = 1.8,   # Increase horizontal spacing
+    spacing_y = 2.0,   # Increase vertical spacing
+    angle = 170
+  ) %>% 
+  {
+    edges(.) <- edges(.) %>%
+      filter(from != to) %>%  # Remove variance arrows
+      mutate(
+        size = 0.8,
+        # arrow = "last",
+        color = "black",
+        color = replace(color, from == "LangProf" & to == "word_predictability", "red")
+        )
+    .
+  } %>%
+  {
+    nodes(.) <- nodes(.) %>%
+      mutate(
+        fill = "white",
+        size = 0.8,
+        fill = replace(fill, name == "word_predictability", "red"),
+        label = ifelse(name %in% names(var_labels), var_labels[name], name)
+        )
+    .
+  } %>%
+  plot() +
+  ggtitle("Model 2: Word Predictability as Language Proficiency") +
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
+
+ggsave("../../fig/model2_word_pred_lang_prof.png", 
+       plot = p2, 
+       width = 16, 
+       height = 8, 
+       dpi = 300,
+       bg = "white"
+       )
+```
+
+# =============================================================================
+# MODEL 3: Word Predictability → Accuracy
+# =============================================================================
+
+```{r}
+model3 <- '
+  # First-order factors
+  LexSoph =~ TTR + token_freq + bigram_freq
+  SynComp =~ clauses_per_tunit + MLU
+  PhraSoph =~ delta_p + MI_dep_bigrams
+  
+  # Second-order factor with direct loading
+  Complexity =~ LexSoph + SynComp + PhraSoph
+  
+  # Other first-order factors
+  Accuracy =~ error_grammar + error_vocab + error_spelling + word_predictability
+  Fluency =~ word_count + tunit_count + clause_count
+  
+  # Third-order factor
+  LangProf =~ Complexity + Accuracy + Fluency
+'
+
+layout3 = get_layout("","","","","","","","LangProf","","","","","","",
+                     "","","","Complexity","","","","","Accuracy","","","","Fluency","",
+                     "","LexSoph","","SynComp","","","PhraSoph","","","","","","","",
+                     "TTR", "token_freq", "bigram_freq", "clauses_per_tunit", "MLU", "delta_p", "MI_dep_bigrams", "error_grammar", "error_vocab", "error_spelling", "word_predictability", "word_count", "tunit_count", "clause_count",
+                     rows = 4)
+p3 <- prepare_graph(
+    model = model3,
+    layout = layout3,
+    spacing_x = 1.8,   # Increase horizontal spacing
+    spacing_y = 2.0,   # Increase vertical spacing
+    angle = 170
+  ) %>% 
+  {
+    edges(.) <- edges(.) %>%
+      filter(from != to) %>%  # Remove variance arrows
+      mutate(
+        size = 0.8,
+        # arrow = "last",
+        color = "black",
+        color = replace(color, from == "Accuracy" & to == "word_predictability", "red")
+        )
+    .
+  } %>%
+  {
+    nodes(.) <- nodes(.) %>%
+      mutate(
+        fill = "white",
+        size = 0.8,
+        fill = replace(fill, name == "word_predictability", "red"),
+        label = ifelse(name %in% names(var_labels), var_labels[name], name)
+        )
+    .
+  } %>%
+  plot() +
+  ggtitle("Model 3: Word Predictability to Accuracy Factor") +
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"))
+
+ggsave("../../fig/model3_word_pred_accuracy.png", 
+       plot = p3, 
+       width = 16, 
+       height = 8, 
+       dpi = 300,
+       bg = "white")
+```
